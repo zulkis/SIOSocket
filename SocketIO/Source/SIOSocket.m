@@ -21,11 +21,11 @@ static NSString *SIOMD5(NSString *string) {
     CC_MD5(cstr, (unsigned int)strlen(cstr), result);
     
     return [NSString stringWithFormat: @"%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X",
-        result[0], result[1], result[2], result[3],
-        result[4], result[5], result[6], result[7],
-        result[8], result[9], result[10], result[11],
-        result[12], result[13], result[14], result[15]
-    ];
+            result[0], result[1], result[2], result[3],
+            result[4], result[5], result[6], result[7],
+            result[8], result[9], result[10], result[11],
+            result[12], result[13], result[14], result[15]
+            ];
 };
 
 @interface SIOSocket ()
@@ -58,33 +58,33 @@ static NSString *SIOMD5(NSString *string) {
         });
         return;
     }
-
+    
     socket.javascriptWebView = [[UIWebView alloc] init];
     [socket.javascriptContext setExceptionHandler: ^(JSContext *context, JSValue *errorValue) {
         NSLog(@"JSError: %@", errorValue);
         NSLog(@"%@", [NSThread callStackSymbols]);
     }];
-
+    
     socket.javascriptContext[@"window"][@"onload"] = ^() {
         socket.thread = [NSThread currentThread];
         [socket.javascriptContext evaluateScript: socket_io_js];
         [socket.javascriptContext evaluateScript: blob_factory_js];
         
         NSString *socketConstructor = socket_io_js_constructor(hostURL,
-            reconnectAutomatically,
-            attempts,
-            reconnectionDelay,
-            maximumDelay,
-            timeout
-        );
-
+                                                               reconnectAutomatically,
+                                                               attempts,
+                                                               reconnectionDelay,
+                                                               maximumDelay,
+                                                               timeout
+                                                               );
+        
         socket.javascriptContext[@"objc_socket"] = [socket.javascriptContext evaluateScript: socketConstructor];
         if (![socket.javascriptContext[@"objc_socket"] toObject]) {
             dispatch_async(dispatch_get_main_queue(), ^{
                 response(nil);
             });
         }
-
+        
         // Responders
         __weak typeof(socket) weakSocket = socket;
         socket.javascriptContext[@"objc_onConnect"] = ^() {
@@ -100,54 +100,54 @@ static NSString *SIOMD5(NSString *string) {
                     weakSocket.onConnectError(errorDictionary);
             });
         };
-
+        
         socket.javascriptContext[@"objc_onDisconnect"] = ^() {
             dispatch_async(dispatch_get_main_queue(), ^{
                 if (weakSocket.onDisconnect)
                     weakSocket.onDisconnect();
             });
         };
-
+        
         socket.javascriptContext[@"objc_onError"] = ^(NSDictionary *errorDictionary) {
             dispatch_async(dispatch_get_main_queue(), ^{
                 if (weakSocket.onError)
                     weakSocket.onError(errorDictionary);
             });
         };
-
+        
         socket.javascriptContext[@"objc_onReconnect"] = ^(NSInteger numberOfAttempts) {
             dispatch_async(dispatch_get_main_queue(), ^{
                 if (weakSocket.onReconnect)
                     weakSocket.onReconnect(numberOfAttempts);
             });
         };
-
+        
         socket.javascriptContext[@"objc_onReconnectionAttempt"] = ^(NSInteger numberOfAttempts) {
             dispatch_async(dispatch_get_main_queue(), ^{
                 if (weakSocket.onReconnectionAttempt)
                     weakSocket.onReconnectionAttempt(numberOfAttempts);
             });
         };
-
+        
         socket.javascriptContext[@"objc_onReconnectionError"] = ^(NSDictionary *errorDictionary) {
             dispatch_async(dispatch_get_main_queue(), ^{
                 if (weakSocket.onReconnectionError)
                     weakSocket.onReconnectionError(errorDictionary);
             });
         };
-
+        
         [socket.javascriptContext evaluateScript: @"objc_socket.on('connect', objc_onConnect);"];
         [socket.javascriptContext evaluateScript: @"objc_socket.on('error', objc_onError);"];
         [socket.javascriptContext evaluateScript: @"objc_socket.on('disconnect', objc_onDisconnect);"];
         [socket.javascriptContext evaluateScript: @"objc_socket.on('reconnect', objc_onReconnect);"];
         [socket.javascriptContext evaluateScript: @"objc_socket.on('reconnecting', objc_onReconnectionAttempt);"];
         [socket.javascriptContext evaluateScript: @"objc_socket.on('reconnect_error', objc_onReconnectionError);"];
-
+        
         dispatch_async(dispatch_get_main_queue(), ^{
             response(socket);
         });
     };
-        
+    
     [socket.javascriptWebView loadHTMLString: @"<html/>" baseURL: nil];
 }
 
@@ -209,7 +209,7 @@ static NSString *SIOMD5(NSString *string) {
             }
         }
     }
-
+    
     NSString* script = [NSString stringWithFormat: @"objc_socket.emit(%@);", [arguments componentsJoinedByString: @", "]];
     [self performSelector:@selector(evaluateScript:) onThread:_thread withObject:[script copy] waitUntilDone:NO];
 }
@@ -219,9 +219,12 @@ static NSString *SIOMD5(NSString *string) {
 }
 
 - (void)close {
-    [self.javascriptWebView loadRequest: [NSURLRequest requestWithURL: [NSURL URLWithString: @"about:blank"]]];
-    [self.javascriptWebView reload];
-    self.javascriptWebView = nil;
+    if (self.javascriptWebView) {
+        [self performSelector:@selector(evaluateScript:) onThread:_thread withObject:@"objc_socket.disconnect(true);" waitUntilDone:NO];
+        [self.javascriptWebView loadRequest: [NSURLRequest requestWithURL: [NSURL URLWithString: @"about:blank"]]];
+        [self.javascriptWebView reload];
+        self.javascriptWebView = nil;
+    }
 }
 
 @end
